@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MKFC 라인업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pitch:#2f8b4f; --pitch2:#2a7d47; --line:rgba(255,255,255,.85);
+    --ink:#0d1a12; --panel:#12241a; --panel2:#183024;
+    --paper:#f4f2e7; --paper-line:#dfe0cf;
+    --gold:#f5c518; --orange:#e8552b; --text:#e9f2ec; --text-dark:#16261c;
+    --muted:#9db3a5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Noto Sans KR',sans-serif; background:var(--ink); color:var(--text);
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .disp{font-family:'Oswald',sans-serif; letter-spacing:.02em}
+
+  /* header */
+  header{
+    background:linear-gradient(180deg,#0d1a12,#0b160f);
+    border-bottom:2px solid #1e3a29; position:sticky; top:0; z-index:20;
+  }
+  .bar{max-width:1000px; margin:0 auto; padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  .logo{font-family:'Oswald',sans-serif; font-weight:700; font-size:22px; text-transform:uppercase; letter-spacing:.04em; display:flex; align-items:center; gap:9px}
+  .logo .ball{width:26px;height:26px;border-radius:50%;background:
+    radial-gradient(circle at 35% 30%,#fff,#dfe6e0 60%,#b9c3bb);
+    box-shadow:inset 0 0 0 2px #0d1a12, 0 0 0 2px var(--gold); flex:none}
+  .tabs{display:flex; gap:6px; margin-left:auto; background:#0b160f; padding:4px; border-radius:11px; border:1px solid #1e3a29}
+  .tab{font-family:'Oswald',sans-serif; font-weight:600; font-size:14px; letter-spacing:.03em; color:var(--muted); background:none; border:none; cursor:pointer; padding:9px 16px; border-radius:8px; transition:.18s}
+  .tab.active{background:var(--gold); color:#16261c}
+  .tab:not(.active):hover{color:#fff}
+  .store-pill{font-size:12px;font-weight:500;padding:6px 11px;border-radius:20px;white-space:nowrap;border:1px solid transparent}
+  .store-pill.ok{background:rgba(76,175,120,.16);color:#7fd6a0;border-color:rgba(76,175,120,.3)}
+  .store-pill.warn{background:rgba(245,197,24,.14);color:var(--gold);border-color:rgba(245,197,24,.3)}
+  .store-pill.err{background:rgba(232,85,43,.16);color:#ff9873;border-color:rgba(232,85,43,.35)}
+  .refresh{background:none;border:1px solid #2a4a37;color:var(--muted);border-radius:8px;padding:8px 11px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;transition:.18s;font-family:inherit}
+  .refresh:hover{border-color:var(--gold);color:var(--gold)}
+  .refresh.spin svg{animation:sp .7s linear}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  main{max-width:1000px; margin:0 auto; padding:22px 18px 60px}
+  .view{display:none} .view.on{display:block; animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .eyebrow{font-family:'Oswald',sans-serif;font-weight:600;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:4px}
+  h2.sec{font-family:'Oswald',sans-serif;font-weight:700;font-size:26px;text-transform:uppercase;letter-spacing:.02em;margin-bottom:16px}
+
+  /* ---------- 명단 폼 ---------- */
+  .card{background:var(--panel); border:1px solid #223f2e; border-radius:14px; padding:18px}
+  .form-grid{display:grid; grid-template-columns:1fr .6fr 1fr 1fr auto; gap:10px; align-items:end}
+  label.f{display:block}
+  label.f span{font-size:11px; color:var(--muted); letter-spacing:.04em; display:block; margin-bottom:5px}
+  input,select{width:100%; background:#0d1a12; border:1px solid #2a4a37; color:var(--text); border-radius:9px; padding:10px 11px; font-size:14px; font-family:inherit}
+  input:focus,select:focus{outline:none; border-color:var(--gold)}
+  .btn{font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.04em; text-transform:uppercase; border:none; border-radius:9px; padding:11px 18px; cursor:pointer; font-size:14px; transition:.15s}
+  .btn.gold{background:var(--gold); color:#16261c}
+  .btn.gold:hover{filter:brightness(1.08)}
+  .btn.ghost{background:none;color:var(--muted);border:1px solid #2a4a37}
+  .btn.ghost:hover{border-color:var(--orange);color:var(--orange)}
+
+  .share-note{font-size:12px;color:var(--muted);margin-top:11px;display:flex;align-items:center;gap:7px}
+  .share-note b{color:var(--gold);font-weight:700}
+
+  /* ---------- 명단 리스트 ---------- */
+  .count{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;color:var(--muted);margin:24px 0 12px}
+  .count b{color:var(--gold);font-size:18px}
+  .roster{display:flex;flex-direction:column;gap:8px}
+  .pl{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid #223f2e;border-radius:12px;padding:11px 14px}
+  .num{width:44px;height:44px;flex:none;border-radius:9px;background:#0d1a12;border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;font-weight:700;font-size:20px;color:var(--gold)}
+  .pl .name{font-weight:700;font-size:16px}
+  .pos-tags{display:flex;gap:6px;margin-top:3px;flex-wrap:wrap}
+  .tag{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;letter-spacing:.02em}
+  .tag.main{background:rgba(245,197,24,.16);color:var(--gold)}
+  .tag.sub{background:rgba(255,255,255,.08);color:var(--muted)}
+  .pl .grow{flex:1;min-width:0}
+  .icon-btn{background:none;border:1px solid #2a4a37;color:var(--muted);border-radius:8px;width:34px;height:34px;cursor:pointer;font-size:15px;transition:.15s;flex:none}
+  .icon-btn:hover{border-color:var(--orange);color:var(--orange)}
+  .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;line-height:1.7}
+
+  /* ---------- 전술판 ---------- */
+  .form-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .fchip{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.03em;background:var(--panel);border:1px solid #2a4a37;color:var(--muted);border-radius:9px;padding:9px 15px;cursor:pointer;transition:.15s}
+  .fchip.active{background:var(--gold);color:#16261c;border-color:var(--gold)}
+  .fchip:not(.active):hover{border-color:var(--gold);color:#fff}
+
+  .pitch-wrap{max-width:520px;margin:0 auto}
+  .pitch{position:relative;width:100%;aspect-ratio:68/100;border-radius:14px;overflow:hidden;
+    background:repeating-linear-gradient(180deg,var(--pitch) 0 10%,var(--pitch2) 10% 20%);
+    border:2px solid #1e3a29; box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .pitch svg.lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .slot{position:absolute;transform:translate(-50%,-50%);width:60px;text-align:center;cursor:pointer}
+  .slot .disc{width:46px;height:46px;margin:0 auto;border-radius:50%;
+    background:rgba(13,26,18,.55);border:2px dashed rgba(255,255,255,.5);
+    display:flex;align-items:center;justify-content:center;transition:.15s;
+    font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;color:rgba(255,255,255,.7)}
+  .slot.filled .disc{background:var(--gold);border:2px solid #fff;color:#16261c;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,.35);animation:pop .2s ease}
+  @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
+  .slot:hover .disc{border-color:#fff}
+  .slot .lbl{font-size:11px;font-weight:700;color:#fff;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot .role{font-family:'Oswald',sans-serif;font-size:10px;color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.7)}
+
+  .bench{margin-top:22px}
+  .bench h3{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+  .bench-list{display:flex;gap:8px;flex-wrap:wrap}
+  .bchip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid #223f2e;border-radius:20px;padding:5px 12px 5px 6px;font-size:13px}
+  .bchip .bn{width:24px;height:24px;border-radius:50%;background:#0d1a12;border:1.5px solid var(--gold);color:var(--gold);font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+
+  /* ---------- 모달 ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(6,12,8,.78);display:none;align-items:center;justify-content:center;z-index:40;padding:18px}
+  .overlay.on{display:flex}
+  .modal{background:var(--panel);border:1px solid #2a4a37;border-radius:16px;width:100%;max-width:400px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+  .modal-h{padding:16px 18px;border-bottom:1px solid #223f2e;display:flex;align-items:center;justify-content:space-between}
+  .modal-h .t{font-family:'Oswald',sans-serif;font-weight:600;font-size:17px}
+  .modal-h .t small{display:block;color:var(--gold);font-size:12px;letter-spacing:.05em}
+  .modal-body{overflow-y:auto;padding:8px}
+  .opt{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:.12s}
+  .opt:hover{background:var(--panel2)}
+  .opt .on-pitch{margin-left:auto;font-size:11px;color:var(--gold)}
+  .opt.clear{color:var(--orange)}
+  .modal.setup{max-width:520px}
+  .setup-url{padding:14px 16px;border-bottom:1px solid #223f2e}
+  .setup-actions{display:flex;gap:8px;margin-top:10px}
+  .api-state{margin-top:9px;font-size:12.5px;min-height:16px}
+  .api-state.ok{color:#7fd6a0}.api-state.err{color:#ff9873}
+  .btn.small{padding:6px 12px;font-size:12px}
+  .guide{padding:14px 16px}
+  .guide summary{cursor:pointer;font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;color:var(--gold);letter-spacing:.02em}
+  .steps{margin:12px 0 14px;padding-left:20px;font-size:13px;line-height:1.85;color:var(--text)}
+  .steps b{color:var(--gold);font-weight:700}
+  .steps code{background:#0d1a12;border:1px solid #2a4a37;border-radius:4px;padding:1px 5px;font-size:12px}
+  .code-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:12px;color:var(--muted);font-family:'Oswald',sans-serif;letter-spacing:.05em}
+  pre#gasCode{background:#0a130d;border:1px solid #223f2e;border-radius:9px;padding:12px;font-size:11.5px;line-height:1.55;color:#cfe6d6;overflow:auto;max-height:220px;white-space:pre;font-family:ui-monospace,Menlo,Consolas,monospace}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--gold);color:#16261c;font-weight:700;padding:11px 20px;border-radius:10px;opacity:0;transition:.25s;z-index:60;font-size:14px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  #loading{position:fixed;inset:0;background:var(--ink);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:100}
+  #loading .ball{width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#dfe6e0 60%,#b9c3bb);box-shadow:0 0 0 3px var(--gold);animation:bounce .6s ease-in-out infinite alternate}
+  @keyframes bounce{to{transform:translateY(-14px)}}
+  #loading p{color:var(--muted);font-family:'Oswald',sans-serif;letter-spacing:.1em;font-size:13px}
+
+  @media (max-width:720px){
+    .form-grid{grid-template-columns:1fr 1fr;gap:9px}
+    .form-grid .full{grid-column:1/-1}
+    .logo{font-size:19px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="ball"></div><p>라인업 불러오는 중…</p></div>
+
+<header>
+  <div class="bar">
+    <div class="logo"><span class="ball"></span> MKFC 라인업</div>
+    <div class="tabs">
+      <button class="tab active" data-view="roster">명단</button>
+      <button class="tab" data-view="tactics">전술판</button>
+    </div>
+    <span class="store-pill" id="storeStatus">저장소 확인 중…</span>
+    <button class="refresh" id="setupBtn" title="구글시트 실시간 공유 설정">⚙ 설정</button>
+    <button class="refresh" id="refreshBtn" title="팀원들이 넣은 최신 내용 불러오기">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+      새로고침
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ===== 명단 ===== -->
+  <section class="view on" id="roster">
+    <div class="eyebrow">Squad · 선수 등록</div>
+    <h2 class="sec">우리 팀 명단</h2>
+
+    <div class="card">
+      <div class="form-grid">
+        <label class="f"><span>이름</span><input id="i-name" placeholder="홍길동" maxlength="12"></label>
+        <label class="f"><span>번호</span><input id="i-num" type="number" placeholder="10" min="0" max="99"></label>
+        <label class="f"><span>주 포지션</span><select id="i-main"></select></label>
+        <label class="f"><span>서브 포지션</span><select id="i-sub"></select></label>
+        <button class="btn gold" id="addBtn">등록</button>
+      </div>
+      <div class="share-note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+        여기 등록한 내용은 <b>팀원 모두에게 공유</b>됩니다. 다른 사람이 넣은 내용은 <b>새로고침</b>으로 확인하세요.
+      </div>
+    </div>
+
+    <div class="count">등록 선수 <b id="cnt">0</b>명</div>
+    <div class="roster" id="rosterList"></div>
+  </section>
+
+  <!-- ===== 전술판 ===== -->
+  <section class="view" id="tactics">
+    <div class="eyebrow">Formation · 포메이션 배치</div>
+    <h2 class="sec">전술판</h2>
+
+    <div class="form-chips" id="formChips"></div>
+
+    <div class="pitch-wrap">
+      <div class="pitch" id="pitch">
+        <svg class="lines" viewBox="0 0 68 100" preserveAspectRatio="none">
+          <g fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".4">
+            <rect x="2" y="2" width="64" height="96"/>
+            <line x1="2" y1="50" x2="66" y2="50"/>
+            <circle cx="34" cy="50" r="9"/>
+            <circle cx="34" cy="50" r=".7" fill="rgba(255,255,255,.55)"/>
+            <rect x="20" y="2" width="28" height="14"/>
+            <rect x="27" y="2" width="14" height="5"/>
+            <rect x="20" y="84" width="28" height="14"/>
+            <rect x="27" y="93" width="14" height="5"/>
+          </g>
+        </svg>
+        <!-- slots injected -->
+      </div>
+    </div>
+
+    <div class="bench">
+      <h3>미배정 선수 (벤치)</h3>
+      <div class="bench-list" id="benchList"></div>
+    </div>
+  </section>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="t">선수 배치<small id="modalSlot"></small></div>
+      <button class="icon-btn" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ===== 설정 모달 ===== -->
+<div class="overlay" id="setupOverlay">
+  <div class="modal setup">
+    <div class="modal-h">
+      <div class="t">실시간 공유 설정<small>구글 시트 연결</small></div>
+      <button class="icon-btn" id="setupClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="setup-url">
+        <label class="f"><span>웹앱 URL</span>
+          <input id="apiInput" placeholder="https://script.google.com/macros/s/.../exec">
+        </label>
+        <div class="setup-actions">
+          <button class="btn gold" id="apiSave">연결</button>
+          <button class="btn ghost" id="apiClear">해제</button>
+        </div>
+        <div id="apiState" class="api-state"></div>
+      </div>
+
+      <details class="guide" open>
+        <summary>연결하는 법 (5분, 무료)</summary>
+        <ol class="steps">
+          <li>구글에서 <b>새 스프레드시트</b> 하나 만들기 (sheets.new)</li>
+          <li>상단 메뉴 <b>확장 프로그램 → Apps Script</b> 열기</li>
+          <li>기존 코드 지우고, 아래 코드를 <b>전체 복사해 붙여넣기</b></li>
+          <li>상단 <b>배포 → 새 배포 → 유형: 웹 앱</b></li>
+          <li><b>액세스 권한: 모든 사용자</b>로 설정 후 배포 (권한 승인 필요)</li>
+          <li>나오는 <b>웹앱 URL</b>(…/exec)을 복사해 위 칸에 붙여넣고 <b>연결</b></li>
+          <li>팀원 배포 시엔 이 URL을 파일 상단 <code>API_URL</code>에 넣어 공유하면 모두 자동 연결</li>
+        </ol>
+        <div class="code-head">
+          <span>Apps Script 코드</span>
+          <button class="btn ghost small" id="copyCode">복사</button>
+        </div>
+        <pre id="gasCode"></pre>
+      </details>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- 포지션 옵션 ----------
+const POS_GROUPS = {
+  '골키퍼':['GK'],
+  '수비수':['CB','LB','RB','LWB','RWB'],
+  '미드필더':['CDM','CM','CAM','LM','RM'],
+  '공격수':['LW','RW','ST','CF','SS']
+};
+function fillPosSelect(sel, withNone){
+  if(withNone) sel.innerHTML = '<option value="">-</option>';
+  else sel.innerHTML = '';
+  for(const [g,arr] of Object.entries(POS_GROUPS)){
+    const og = document.createElement('optgroup'); og.label=g;
+    arr.forEach(p=>{const o=document.createElement('option');o.value=p;o.textContent=p;og.appendChild(o);});
+    sel.appendChild(og);
+  }
+}
+
+// ---------- 포메이션 정의 (x,y = %, GK 하단) ----------
+const FORMATIONS = {
+  // ===== 백4 =====
+  '4-4-2':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['RM',82,48],['CM',61,50],['CM',39,50],['LM',18,48],['ST',60,20],['ST',40,20]],
+  '4-3-3':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['CM',68,52],['CM',50,56],['CM',32,52],['RW',80,22],['ST',50,16],['LW',20,22]],
+  '4-2-3-1':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['CDM',61,58],['CDM',39,58],['RM',80,38],['CAM',50,36],['LM',20,38],['ST',50,15]],
+  '4-1-4-1':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['CDM',50,58],['RM',84,42],['CM',62,44],['CM',38,44],['LM',16,42],['ST',50,17]],
+  '4-4-2 다이아':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['CDM',50,60],['CM',72,48],['CM',28,48],['CAM',50,32],['ST',60,17],['ST',40,17]],
+  '4-5-1':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['RM',85,50],['CM',65,52],['CM',50,54],['CM',35,52],['LM',15,50],['ST',50,18]],
+  '4-2-4':[['GK',50,90],['RB',82,72],['CB',61,74],['CB',39,74],['LB',18,72],
+    ['CM',61,52],['CM',39,52],['RW',82,22],['ST',60,17],['ST',40,17],['LW',18,22]],
+  // ===== 백3 =====
+  '3-4-3':[['GK',50,90],['CB',68,74],['CB',50,76],['CB',32,74],
+    ['RM',84,50],['CM',61,52],['CM',39,52],['LM',16,50],['RW',76,20],['ST',50,16],['LW',24,20]],
+  '3-5-2':[['GK',50,90],['CB',68,74],['CB',50,76],['CB',32,74],
+    ['RWB',88,52],['CM',66,55],['CM',50,50],['CM',34,55],['LWB',12,52],['ST',60,18],['ST',40,18]],
+  '3-4-2-1':[['GK',50,90],['CB',68,74],['CB',50,76],['CB',32,74],
+    ['RWB',86,52],['CM',60,54],['CM',40,54],['LWB',14,52],['CAM',62,32],['CAM',38,32],['ST',50,16]],
+  // ===== 백5 =====
+  '5-3-2':[['GK',50,90],['RWB',88,66],['CB',68,74],['CB',50,76],['CB',32,74],['LWB',12,66],
+    ['CM',66,50],['CM',50,52],['CM',34,50],['ST',60,20],['ST',40,20]],
+  '5-4-1':[['GK',50,90],['RWB',88,66],['CB',68,74],['CB',50,76],['CB',32,74],['LWB',12,66],
+    ['RM',82,48],['CM',60,50],['CM',40,50],['LM',18,48],['ST',50,18]]
+};
+
+// ---------- 상태 ----------
+let roster = [];
+let lineup = { formation:'4-4-2', slots:{} }; // slots: {slotIndex: playerId}
+let pickingSlot = null;
+
+// ---------- 저장소 추상화 ----------
+// ▼▼▼ 여기에 구글 Apps Script 웹앱 URL을 붙여넣으면 팀 전체 실시간 공유가 켜집니다 ▼▼▼
+const API_URL = "https://script.google.com/macros/s/AKfycbwVrYniOYFeMPlw0RZPM_RxwNddfVIwS0AJXZANvtTuSiNNIzH9b4nzkyzW1EtvXq5i-A/exec";   // 예: "https://script.google.com/macros/s/AKfy.../exec"
+// ▲▲▲ (또는 앱 우측 상단 ⚙ 설정에서 입력해도 됩니다) ▲▲▲
+
+// 로컬 폴백: 팀 공유 저장소(window.storage) → 이 기기(localStorage) → 메모리
+const localStore = (function(){
+  const hasShared = (typeof window!=='undefined') && window.storage && typeof window.storage.get==='function';
+  let hasLocal = false;
+  try{ const k='__t'; localStorage.setItem(k,'1'); localStorage.removeItem(k); hasLocal=true; }catch(e){ hasLocal=false; }
+  const mem = {};
+  const mode = hasShared ? 'shared' : (hasLocal ? 'local' : 'memory');
+  return {
+    mode,
+    async get(key){
+      if(hasShared){ try{ const r=await window.storage.get(key,true); return r?r.value:null; }catch(e){ return null; } }
+      if(hasLocal){ try{ return localStorage.getItem(key); }catch(e){} }
+      return (key in mem)?mem[key]:null;
+    },
+    async set(key,val){
+      if(hasShared){ try{ await window.storage.set(key,val,true); return true; }catch(e){ return false; } }
+      if(hasLocal){ try{ localStorage.setItem(key,val); return true; }catch(e){} }
+      mem[key]=val; return false;
+    }
+  };
+})();
+
+function getApiUrl(){
+  let u = (API_URL||'').trim();
+  if(!u){ try{ u = (localStorage.getItem('mkfc_api')||'').trim(); }catch(e){} }
+  return u;
+}
+let apiUrl = getApiUrl();
+let cloudOk = false; // 마지막 클라우드 통신 성공 여부
+
+const persist = {
+  get isCloud(){ return !!apiUrl; },
+  async load(){
+    if(apiUrl){
+      try{
+        const res = await fetch(apiUrl, {cache:'no-store'});
+        if(!res.ok) throw new Error('http '+res.status);
+        const data = await res.json();
+        cloudOk = true;
+        return data; // {roster, lineup}
+      }catch(e){ cloudOk=false; return null; }
+    }
+    const r = await localStore.get('roster');
+    const l = await localStore.get('lineup');
+    const out = {};
+    if(r!==null){ try{ out.roster = JSON.parse(r); }catch(e){} }
+    if(l!==null){ try{ out.lineup = JSON.parse(l); }catch(e){} }
+    return out;
+  },
+  async save(state){
+    if(apiUrl){
+      try{
+        const res = await fetch(apiUrl, {
+          method:'POST',
+          headers:{'Content-Type':'text/plain;charset=utf-8'}, // 프리플라이트 회피
+          body: JSON.stringify(state)
+        });
+        const j = await res.json();
+        cloudOk = !!(j && j.ok);
+        return cloudOk;
+      }catch(e){ cloudOk=false; return false; }
+    }
+    const a = await localStore.set('roster', JSON.stringify(state.roster));
+    const b = await localStore.set('lineup', JSON.stringify(state.lineup));
+    return a && b;
+  }
+};
+
+async function loadAll(){
+  const data = await persist.load();
+  if(data){
+    if(Array.isArray(data.roster)) roster = data.roster;
+    if(data.lineup && data.lineup.formation) lineup = data.lineup;
+  }
+  showStorageStatus();
+}
+function saveState(){ return persist.save({roster, lineup}); }
+async function saveRoster(){ const ok=await saveState(); showStorageStatus(); if(!ok) toast('⚠ 저장에 실패했습니다'); return ok; }
+async function saveLineup(){ const ok=await saveState(); showStorageStatus(); if(!ok) toast('⚠ 저장에 실패했습니다'); return ok; }
+
+function showStorageStatus(){
+  const el = document.getElementById('storeStatus'); if(!el) return;
+  if(apiUrl){
+    if(cloudOk){ el.textContent='🟢 실시간 공유 중'; el.className='store-pill ok'; }
+    else{ el.textContent='⚠ 시트 연결 실패'; el.className='store-pill err'; }
+  }
+  else if(localStore.mode==='shared'){ el.textContent='☁ 팀 공유 저장'; el.className='store-pill ok'; }
+  else if(localStore.mode==='local'){ el.textContent='💾 이 기기에만 저장'; el.className='store-pill warn'; }
+  else{ el.textContent='⚠ 저장 안 됨'; el.className='store-pill err'; }
+}
+
+// ---------- 렌더: 명단 ----------
+function renderRoster(){
+  const list = document.getElementById('rosterList');
+  document.getElementById('cnt').textContent = roster.length;
+  if(!roster.length){
+    list.innerHTML = '<div class="empty">아직 등록된 선수가 없어요.<br>위에서 이름·번호·포지션을 넣고 <b>등록</b>을 눌러 시작하세요.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  roster.slice().sort((a,b)=>(a.number||99)-(b.number||99)).forEach(p=>{
+    const el = document.createElement('div'); el.className='pl';
+    el.innerHTML = `
+      <div class="num">${p.number??'-'}</div>
+      <div class="grow">
+        <div class="name">${esc(p.name)}</div>
+        <div class="pos-tags">
+          ${p.mainPos?`<span class="tag main">주 ${p.mainPos}</span>`:''}
+          ${p.subPos?`<span class="tag sub">서브 ${p.subPos}</span>`:''}
+        </div>
+      </div>
+      <button class="icon-btn" title="삭제" data-del="${p.id}">🗑</button>`;
+    list.appendChild(el);
+  });
+  list.querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick=()=>delPlayer(b.dataset.del);
+  });
+}
+
+// ---------- 렌더: 전술판 ----------
+function renderFormChips(){
+  const wrap = document.getElementById('formChips'); wrap.innerHTML='';
+  Object.keys(FORMATIONS).forEach(f=>{
+    const b=document.createElement('button');
+    b.className='fchip'+(f===lineup.formation?' active':''); b.textContent=f;
+    b.onclick=()=>{ lineup.formation=f; lineup.slots={}; saveLineup(); renderTactics(); };
+    wrap.appendChild(b);
+  });
+}
+function renderTactics(){
+  renderFormChips();
+  const pitch = document.getElementById('pitch');
+  pitch.querySelectorAll('.slot').forEach(s=>s.remove());
+  const layout = FORMATIONS[lineup.formation];
+  layout.forEach((slot,idx)=>{
+    const [role,x,y]=slot;
+    const pid = lineup.slots[idx];
+    const p = pid ? roster.find(r=>r.id===pid) : null;
+    const el=document.createElement('div');
+    el.className='slot'+(p?' filled':''); el.style.left=x+'%'; el.style.top=y+'%';
+    el.innerHTML = `
+      <div class="disc">${p?(p.number??'●'):role}</div>
+      <div class="${p?'lbl':'role'}">${p?esc(p.name):''}</div>`;
+    el.onclick=()=>openPicker(idx,role);
+    pitch.appendChild(el);
+  });
+  renderBench();
+}
+function renderBench(){
+  const used = new Set(Object.values(lineup.slots));
+  const bench = roster.filter(p=>!used.has(p.id));
+  const el=document.getElementById('benchList');
+  if(!roster.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">먼저 명단에서 선수를 등록하세요.</span>'; return; }
+  if(!bench.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">모든 선수가 배치되었습니다.</span>'; return; }
+  el.innerHTML='';
+  bench.sort((a,b)=>(a.number||99)-(b.number||99)).forEach(p=>{
+    const c=document.createElement('div'); c.className='bchip';
+    c.innerHTML=`<span class="bn">${p.number??'-'}</span>${esc(p.name)}`;
+    el.appendChild(c);
+  });
+}
+
+// ---------- 선수 배치 모달 ----------
+function openPicker(slotIdx, role){
+  pickingSlot = slotIdx;
+  document.getElementById('modalSlot').textContent = role+' 자리';
+  const body=document.getElementById('modalBody');
+  const used = new Set(Object.entries(lineup.slots).filter(([k,v])=>+k!==slotIdx).map(([k,v])=>v));
+  let html='';
+  if(lineup.slots[slotIdx]){
+    html+=`<div class="opt clear" data-pick="__clear"><span>✕ 이 자리 비우기</span></div>`;
+  }
+  if(!roster.length){
+    html+='<div class="empty" style="padding:24px">등록된 선수가 없습니다.</div>';
+  }
+  roster.slice().sort((a,b)=>(a.number||99)-(b.number||99)).forEach(p=>{
+    const onPitch = used.has(p.id);
+    html+=`<div class="opt" data-pick="${p.id}">
+      <div class="bn" style="width:28px;height:28px;border-radius:50%;background:#0d1a12;border:1.5px solid var(--gold);color:var(--gold);font-family:Oswald;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px">${p.number??'-'}</div>
+      <div><div style="font-weight:700">${esc(p.name)}</div><div style="font-size:11px;color:var(--muted)">${p.mainPos||''}</div></div>
+      ${onPitch?'<span class="on-pitch">다른 자리 → 이동</span>':''}
+    </div>`;
+  });
+  body.innerHTML=html;
+  body.querySelectorAll('[data-pick]').forEach(o=>{
+    o.onclick=()=>pick(o.dataset.pick);
+  });
+  document.getElementById('overlay').classList.add('on');
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('on'); pickingSlot=null; }
+function pick(val){
+  if(val==='__clear'){ delete lineup.slots[pickingSlot]; }
+  else{
+    // 다른 자리에 있으면 제거 후 배치
+    for(const k in lineup.slots){ if(lineup.slots[k]===val) delete lineup.slots[k]; }
+    lineup.slots[pickingSlot]=val;
+  }
+  saveLineup(); closeModal(); renderTactics();
+}
+
+// ---------- 명단 추가/삭제 ----------
+function addPlayer(){
+  const name=document.getElementById('i-name').value.trim();
+  const numRaw=document.getElementById('i-num').value.trim();
+  const mainPos=document.getElementById('i-main').value;
+  const subPos=document.getElementById('i-sub').value;
+  if(!name){ toast('이름을 입력하세요'); return; }
+  const number = numRaw===''?null:parseInt(numRaw,10);
+  roster.push({ id:'p'+Date.now()+Math.random().toString(36).slice(2,6), name, number, mainPos, subPos });
+  renderRoster();
+  document.getElementById('i-name').value='';
+  document.getElementById('i-num').value='';
+  document.getElementById('i-name').focus();
+  saveRoster().then(ok=>{ if(ok) toast(name+' 등록 완료'); });
+}
+function delPlayer(id){
+  const p=roster.find(r=>r.id===id);
+  if(!confirm((p?p.name:'이 선수')+' 님을 명단에서 삭제할까요?')) return;
+  roster=roster.filter(r=>r.id!==id);
+  for(const k in lineup.slots){ if(lineup.slots[k]===id) delete lineup.slots[k]; }
+  saveRoster(); saveLineup(); renderRoster();
+}
+
+// ---------- 유틸 ----------
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),1900);
+}
+
+// ---------- 이벤트 ----------
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(x=>x.classList.remove('on'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.view).classList.add('on');
+    if(t.dataset.view==='tactics') renderTactics();
+  };
+});
+document.getElementById('addBtn').onclick=addPlayer;
+document.getElementById('i-sub').addEventListener('keydown',e=>{if(e.key==='Enter')addPlayer();});
+document.getElementById('i-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('i-num').focus();});
+document.getElementById('overlay').onclick=e=>{if(e.target.id==='overlay')closeModal();};
+document.getElementById('modalClose').onclick=closeModal;
+document.getElementById('refreshBtn').onclick=async function(){
+  this.classList.add('spin'); setTimeout(()=>this.classList.remove('spin'),700);
+  await loadAll(); renderRoster();
+  if(document.getElementById('tactics').classList.contains('on')) renderTactics();
+  toast('최신 명단을 불러왔습니다');
+};
+
+// ---------- 설정: 구글시트 연결 ----------
+const GAS_CODE =
+`function doGet(e){ return out_(read_()); }
+
+function doPost(e){
+  try{
+    var data = JSON.parse(e.postData.contents);
+    write_(data);
+    return out_({ok:true});
+  }catch(err){
+    return out_({ok:false, error:String(err)});
+  }
+}
+
+function read_(){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rs = ss.getSheetByName('roster') || ss.insertSheet('roster');
+  var roster = [];
+  var vals = rs.getDataRange().getValues();
+  for(var i=1;i<vals.length;i++){
+    var row = vals[i];
+    if(row[1]==='' && row[1]!==0) continue;
+    roster.push({
+      id:String(row[0]||('p'+i)),
+      name:String(row[1]),
+      number:(row[2]===''?null:Number(row[2])),
+      mainPos:String(row[3]||''),
+      subPos:String(row[4]||'')
+    });
+  }
+  var cs = ss.getSheetByName('config') || ss.insertSheet('config');
+  var raw = cs.getRange('A1').getValue();
+  var lineup = {formation:'4-4-2', slots:{}};
+  if(raw){ try{ lineup = JSON.parse(raw); }catch(e){} }
+  return {roster:roster, lineup:lineup};
+}
+
+function write_(data){
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var rs = ss.getSheetByName('roster') || ss.insertSheet('roster');
+  rs.clear();
+  rs.getRange(1,1,1,5).setValues([['id','name','number','mainPos','subPos']]);
+  var roster = data.roster || [];
+  if(roster.length){
+    var rows = roster.map(function(p){
+      return [p.id||'', p.name||'', (p.number==null?'':p.number), p.mainPos||'', p.subPos||''];
+    });
+    rs.getRange(2,1,rows.length,5).setValues(rows);
+  }
+  var cs = ss.getSheetByName('config') || ss.insertSheet('config');
+  cs.getRange('A1').setValue(JSON.stringify(data.lineup || {formation:'4-4-2',slots:{}}));
+}
+
+function out_(obj){
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
+
+document.getElementById('gasCode').textContent = GAS_CODE;
+const setupOverlay = document.getElementById('setupOverlay');
+function setApiState(msg,cls){ const el=document.getElementById('apiState'); el.textContent=msg||''; el.className='api-state'+(cls?(' '+cls):''); }
+document.getElementById('setupBtn').onclick=()=>{
+  document.getElementById('apiInput').value = apiUrl || '';
+  setApiState(apiUrl?(cloudOk?'🟢 현재 연결됨':'⚠ 연결 확인 필요'):'');
+  setupOverlay.classList.add('on');
+};
+document.getElementById('setupClose').onclick=()=>setupOverlay.classList.remove('on');
+setupOverlay.onclick=e=>{ if(e.target.id==='setupOverlay') setupOverlay.classList.remove('on'); };
+document.getElementById('apiSave').onclick=async ()=>{
+  const u = document.getElementById('apiInput').value.trim();
+  if(!u){ setApiState('URL을 입력하세요','err'); return; }
+  if(!/^https:\/\/script\.google\.com\/.*\/exec$/.test(u)){ setApiState('…/exec 로 끝나는 웹앱 URL이어야 합니다','err'); return; }
+  setApiState('연결 확인 중…');
+  try{
+    const res = await fetch(u,{cache:'no-store'});
+    const data = await res.json();
+    try{ localStorage.setItem('mkfc_api', u); }catch(e){}
+    apiUrl = u; cloudOk = true;
+    if(data){ if(Array.isArray(data.roster)) roster=data.roster; if(data.lineup&&data.lineup.formation) lineup=data.lineup; }
+    setApiState('🟢 연결됨! 이제 팀원과 실시간으로 공유됩니다.','ok');
+    showStorageStatus(); renderRoster(); renderTactics(); startPolling();
+    toast('구글시트에 연결되었습니다');
+  }catch(e){ setApiState('연결 실패 — URL과 배포 권한(모든 사용자)을 확인하세요','err'); cloudOk=false; showStorageStatus(); }
+};
+document.getElementById('apiClear').onclick=()=>{
+  try{ localStorage.removeItem('mkfc_api'); }catch(e){}
+  apiUrl=''; cloudOk=false;
+  document.getElementById('apiInput').value='';
+  setApiState('연결 해제됨 — 로컬 저장으로 전환됩니다.','');
+  showStorageStatus(); startPolling();
+};
+document.getElementById('copyCode').onclick=async ()=>{
+  try{ await navigator.clipboard.writeText(GAS_CODE); toast('코드 복사됨'); }
+  catch(e){
+    const r=document.createRange(); r.selectNode(document.getElementById('gasCode'));
+    const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+    try{ document.execCommand('copy'); toast('코드 복사됨'); }catch(e2){ toast('복사 실패 — 코드를 직접 선택하세요'); }
+    s.removeAllRanges();
+  }
+};
+
+// ---------- 폴링(자동 동기화) ----------
+let pollTimer=null;
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  const ms = apiUrl ? 5000 : 30000; // 실시간 공유 시 5초, 로컬은 30초
+  pollTimer = setInterval(async()=>{
+    await loadAll(); renderRoster();
+    if(document.getElementById('tactics').classList.contains('on')) renderTactics();
+  }, ms);
+}
+
+// ---------- 초기화 ----------
+(async function init(){
+  fillPosSelect(document.getElementById('i-main'), false);
+  fillPosSelect(document.getElementById('i-sub'), true);
+  showStorageStatus();
+  await loadAll();
+  renderRoster(); renderTactics();
+  document.getElementById('loading').style.display='none';
+  startPolling();
+})();
+</script>
+</body>
+</html>
