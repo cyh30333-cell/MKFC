@@ -86,6 +86,12 @@
 
   /* ---------- 전술판 ---------- */
   .form-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .tac-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
+  .tac-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .save-btn{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.03em;border:none;border-radius:9px;padding:9px 18px;cursor:pointer;font-size:14px;transition:.15s;white-space:nowrap}
+  .save-btn.saved{background:rgba(76,175,120,.16);color:#7fd6a0;border:1px solid rgba(76,175,120,.3)}
+  .save-btn.dirty{background:var(--gold);color:#16261c;box-shadow:0 0 0 0 rgba(245,197,24,.6);animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,197,24,.5)}70%{box-shadow:0 0 0 8px rgba(245,197,24,0)}100%{box-shadow:0 0 0 0 rgba(245,197,24,0)}}
   .fchip{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.03em;background:var(--panel);border:1px solid #2a4a37;color:var(--muted);border-radius:9px;padding:9px 15px;cursor:pointer;transition:.15s}
   .fchip.active{background:var(--gold);color:#16261c;border-color:var(--gold)}
   .fchip:not(.active):hover{border-color:var(--gold);color:#fff}
@@ -202,6 +208,10 @@
     <div class="eyebrow">Formation · 포메이션 배치</div>
     <h2 class="sec">전술판</h2>
 
+    <div class="tac-head">
+      <span class="tac-title">포메이션 선택</span>
+      <button class="save-btn saved" id="saveLineupBtn">저장됨 ✓</button>
+    </div>
     <div class="form-chips" id="formChips"></div>
 
     <div class="pitch-wrap">
@@ -408,17 +418,50 @@ const persist = {
   }
 };
 
+let lineupDirty = false;      // 저장 안 된 포메이션 변경이 있는지
+let saveDebounce = null;
+
 async function loadAll(){
   const data = await persist.load();
   if(data){
     if(Array.isArray(data.roster)) roster = data.roster;
-    if(data.lineup && data.lineup.formation) lineup = data.lineup;
+    // 저장 안 된 배치 작업 중이면 서버 값으로 덮어쓰지 않음(작업 보호)
+    if(!lineupDirty && data.lineup && data.lineup.formation) lineup = data.lineup;
   }
   showStorageStatus();
 }
 function saveState(){ return persist.save({roster, lineup}); }
 async function saveRoster(){ const ok=await saveState(); showStorageStatus(); if(!ok) toast('⚠ 저장에 실패했습니다'); return ok; }
 async function saveLineup(){ const ok=await saveState(); showStorageStatus(); if(!ok) toast('⚠ 저장에 실패했습니다'); return ok; }
+
+function updateSaveBtn(){
+  const b=document.getElementById('saveLineupBtn'); if(!b) return;
+  if(lineupDirty){ b.textContent='💾 저장하기'; b.className='save-btn dirty'; }
+  else{ b.textContent='저장됨 ✓'; b.className='save-btn saved'; }
+}
+function markLineupDirty(){
+  lineupDirty=true; updateSaveBtn();
+  clearTimeout(saveDebounce);
+  saveDebounce=setTimeout(()=>doSaveLineup(), 1000); // 잠시 후 자동 저장
+}
+async function doSaveLineup(){
+  clearTimeout(saveDebounce);
+  const ok=await saveLineup();
+  if(ok){ lineupDirty=false; }
+  updateSaveBtn();
+  return ok;
+}
+function changeFormation(f){
+  if(f===lineup.formation) return;
+  // 이미 배치된 선수들을 순서대로 보존해 새 포메이션에 재배치(초기화 방지)
+  const assigned=[];
+  Object.keys(lineup.slots).map(Number).sort((a,b)=>a-b).forEach(i=>{ if(lineup.slots[i]) assigned.push(lineup.slots[i]); });
+  lineup.formation=f;
+  const layout=FORMATIONS[f], slots={};
+  for(let i=0;i<layout.length && i<assigned.length;i++){ slots[i]=assigned[i]; }
+  lineup.slots=slots;
+  markLineupDirty(); renderTactics();
+}
 
 function showStorageStatus(){
   const el = document.getElementById('storeStatus'); if(!el) return;
@@ -465,7 +508,7 @@ function renderFormChips(){
   Object.keys(FORMATIONS).forEach(f=>{
     const b=document.createElement('button');
     b.className='fchip'+(f===lineup.formation?' active':''); b.textContent=f;
-    b.onclick=()=>{ lineup.formation=f; lineup.slots={}; saveLineup(); renderTactics(); };
+    b.onclick=()=>changeFormation(f);
     wrap.appendChild(b);
   });
 }
@@ -537,7 +580,7 @@ function pick(val){
     for(const k in lineup.slots){ if(lineup.slots[k]===val) delete lineup.slots[k]; }
     lineup.slots[pickingSlot]=val;
   }
-  saveLineup(); closeModal(); renderTactics();
+  markLineupDirty(); closeModal(); renderTactics();
 }
 
 // ---------- 명단 추가/삭제 ----------
@@ -591,6 +634,10 @@ document.getElementById('refreshBtn').onclick=async function(){
   await loadAll(); renderRoster();
   if(document.getElementById('tactics').classList.contains('on')) renderTactics();
   toast('최신 명단을 불러왔습니다');
+};
+document.getElementById('saveLineupBtn').onclick=async function(){
+  const ok=await doSaveLineup();
+  toast(ok?'포메이션 저장 완료':'⚠ 저장 실패');
 };
 
 // ---------- 설정: 구글시트 연결 ----------
@@ -711,7 +758,7 @@ function startPolling(){
   fillPosSelect(document.getElementById('i-sub'), true);
   showStorageStatus();
   await loadAll();
-  renderRoster(); renderTactics();
+  renderRoster(); renderTactics(); updateSaveBtn();
   document.getElementById('loading').style.display='none';
   startPolling();
 })();
