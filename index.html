@@ -342,8 +342,26 @@ const FORMATIONS = {
 
 // ---------- 상태 ----------
 let roster = [];
-let lineup = { formation:'4-4-2', slots:{} }; // slots: {slotIndex: playerId}
+// 포메이션마다 자기만의 배치를 따로 저장: byFormation['4-4-2'] = {slotIndex: playerId}
+let lineup = { formation:'4-4-2', byFormation:{} };
 let pickingSlot = null;
+
+// 옛 형식({formation, slots}) → 새 형식으로 변환
+function migrateLineup(){
+  if(!lineup || typeof lineup!=='object') lineup = { formation:'4-4-2', byFormation:{} };
+  if(lineup.slots && !lineup.byFormation){
+    const f = lineup.formation || '4-4-2';
+    lineup = { formation:f, byFormation:{ [f]: lineup.slots } };
+  }
+  if(!lineup.byFormation) lineup.byFormation = {};
+  if(!lineup.formation) lineup.formation = '4-4-2';
+}
+// 현재 선택된 포메이션의 배치 객체 반환(없으면 생성)
+function currentSlots(){
+  if(!lineup.byFormation) lineup.byFormation = {};
+  if(!lineup.byFormation[lineup.formation]) lineup.byFormation[lineup.formation] = {};
+  return lineup.byFormation[lineup.formation];
+}
 
 // ---------- 저장소 추상화 ----------
 // ▼▼▼ 여기에 구글 Apps Script 웹앱 URL을 붙여넣으면 팀 전체 실시간 공유가 켜집니다 ▼▼▼
@@ -426,7 +444,7 @@ async function loadAll(){
   if(data){
     if(Array.isArray(data.roster)) roster = data.roster;
     // 저장 안 된 배치 작업 중이면 서버 값으로 덮어쓰지 않음(작업 보호)
-    if(!lineupDirty && data.lineup && data.lineup.formation) lineup = data.lineup;
+    if(!lineupDirty && data.lineup && data.lineup.formation){ lineup = data.lineup; migrateLineup(); }
   }
   showStorageStatus();
 }
@@ -453,13 +471,8 @@ async function doSaveLineup(){
 }
 function changeFormation(f){
   if(f===lineup.formation) return;
-  // 이미 배치된 선수들을 순서대로 보존해 새 포메이션에 재배치(초기화 방지)
-  const assigned=[];
-  Object.keys(lineup.slots).map(Number).sort((a,b)=>a-b).forEach(i=>{ if(lineup.slots[i]) assigned.push(lineup.slots[i]); });
-  lineup.formation=f;
-  const layout=FORMATIONS[f], slots={};
-  for(let i=0;i<layout.length && i<assigned.length;i++){ slots[i]=assigned[i]; }
-  lineup.slots=slots;
+  lineup.formation=f;                       // 배치는 포메이션마다 따로 저장됨
+  if(!lineup.byFormation[f]) lineup.byFormation[f]={};
   markLineupDirty(); renderTactics();
 }
 
@@ -517,9 +530,10 @@ function renderTactics(){
   const pitch = document.getElementById('pitch');
   pitch.querySelectorAll('.slot').forEach(s=>s.remove());
   const layout = FORMATIONS[lineup.formation];
+  const slots = currentSlots();
   layout.forEach((slot,idx)=>{
     const [role,x,y]=slot;
-    const pid = lineup.slots[idx];
+    const pid = slots[idx];
     const p = pid ? roster.find(r=>r.id===pid) : null;
     const el=document.createElement('div');
     el.className='slot'+(p?' filled':''); el.style.left=x+'%'; el.style.top=y+'%';
@@ -532,7 +546,7 @@ function renderTactics(){
   renderBench();
 }
 function renderBench(){
-  const used = new Set(Object.values(lineup.slots));
+  const used = new Set(Object.values(currentSlots()));
   const bench = roster.filter(p=>!used.has(p.id));
   const el=document.getElementById('benchList');
   if(!roster.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">먼저 명단에서 선수를 등록하세요.</span>'; return; }
@@ -550,9 +564,10 @@ function openPicker(slotIdx, role){
   pickingSlot = slotIdx;
   document.getElementById('modalSlot').textContent = role+' 자리';
   const body=document.getElementById('modalBody');
-  const used = new Set(Object.entries(lineup.slots).filter(([k,v])=>+k!==slotIdx).map(([k,v])=>v));
+  const slots = currentSlots();
+  const used = new Set(Object.entries(slots).filter(([k,v])=>+k!==slotIdx).map(([k,v])=>v));
   let html='';
-  if(lineup.slots[slotIdx]){
+  if(slots[slotIdx]){
     html+=`<div class="opt clear" data-pick="__clear"><span>✕ 이 자리 비우기</span></div>`;
   }
   if(!roster.length){
@@ -574,11 +589,12 @@ function openPicker(slotIdx, role){
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('on'); pickingSlot=null; }
 function pick(val){
-  if(val==='__clear'){ delete lineup.slots[pickingSlot]; }
+  const slots = currentSlots();
+  if(val==='__clear'){ delete slots[pickingSlot]; }
   else{
-    // 다른 자리에 있으면 제거 후 배치
-    for(const k in lineup.slots){ if(lineup.slots[k]===val) delete lineup.slots[k]; }
-    lineup.slots[pickingSlot]=val;
+    // 같은 포메이션 내 다른 자리에 있으면 제거 후 배치
+    for(const k in slots){ if(slots[k]===val) delete slots[k]; }
+    slots[pickingSlot]=val;
   }
   markLineupDirty(); closeModal(); renderTactics();
 }
@@ -602,8 +618,11 @@ function delPlayer(id){
   const p=roster.find(r=>r.id===id);
   if(!confirm((p?p.name:'이 선수')+' 님을 명단에서 삭제할까요?')) return;
   roster=roster.filter(r=>r.id!==id);
-  for(const k in lineup.slots){ if(lineup.slots[k]===id) delete lineup.slots[k]; }
+  // 삭제된 선수를 모든 포메이션 배치에서 제거
+  const bf = lineup.byFormation || {};
+  for(const f in bf){ for(const k in bf[f]){ if(bf[f][k]===id) delete bf[f][k]; } }
   saveRoster(); saveLineup(); renderRoster();
+  if(document.getElementById('tactics').classList.contains('on')) renderTactics();
 }
 
 // ---------- 유틸 ----------
@@ -718,7 +737,7 @@ document.getElementById('apiSave').onclick=async ()=>{
     const data = await res.json();
     try{ localStorage.setItem('mkfc_api', u); }catch(e){}
     apiUrl = u; cloudOk = true;
-    if(data){ if(Array.isArray(data.roster)) roster=data.roster; if(data.lineup&&data.lineup.formation) lineup=data.lineup; }
+    if(data){ if(Array.isArray(data.roster)) roster=data.roster; if(data.lineup&&data.lineup.formation){ lineup=data.lineup; migrateLineup(); } }
     setApiState('🟢 연결됨! 이제 팀원과 실시간으로 공유됩니다.','ok');
     showStorageStatus(); renderRoster(); renderTactics(); startPolling();
     toast('구글시트에 연결되었습니다');
@@ -758,6 +777,7 @@ function startPolling(){
   fillPosSelect(document.getElementById('i-sub'), true);
   showStorageStatus();
   await loadAll();
+  migrateLineup();
   renderRoster(); renderTactics(); updateSaveBtn();
   document.getElementById('loading').style.display='none';
   startPolling();
