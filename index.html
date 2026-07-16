@@ -85,6 +85,8 @@
   .empty{text-align:center;color:var(--muted);padding:40px 20px;font-size:14px;line-height:1.7}
 
   /* ---------- 전술판 ---------- */
+  .tac-hint{font-size:12px;color:var(--muted);line-height:1.6;margin:-6px 0 16px;background:rgba(255,255,255,.03);border:1px solid #223f2e;border-radius:9px;padding:9px 12px}
+  .tac-hint b{color:var(--gold);font-weight:700}
   .form-chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
   .tac-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}
   .tac-title{font-family:'Oswald',sans-serif;font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -107,10 +109,26 @@
     display:flex;align-items:center;justify-content:center;transition:.15s;
     font-family:'Oswald',sans-serif;font-weight:700;font-size:12px;color:rgba(255,255,255,.7)}
   .slot.filled .disc{background:var(--gold);border:2px solid #fff;color:#16261c;font-size:18px;box-shadow:0 3px 10px rgba(0,0,0,.35);animation:pop .2s ease}
+  .slot.filled{cursor:grab;touch-action:none}
+  .slot.grab{cursor:grabbing;z-index:30}
+  .slot.grab .disc{transform:scale(1.12);box-shadow:0 8px 20px rgba(0,0,0,.5)}
+  .slot.over-bench .disc{background:var(--orange);border-color:#fff}
   @keyframes pop{from{transform:scale(.6)}to{transform:scale(1)}}
   .slot:hover .disc{border-color:#fff}
   .slot .lbl{font-size:11px;font-weight:700;color:#fff;margin-top:3px;text-shadow:0 1px 3px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .slot .role{font-family:'Oswald',sans-serif;font-size:10px;color:rgba(255,255,255,.75);text-shadow:0 1px 2px rgba(0,0,0,.7)}
+  /* 빈 자리 가이드 */
+  .ghost{position:absolute;transform:translate(-50%,-50%);cursor:pointer;opacity:.5;transition:opacity .15s}
+  .ghost:hover{opacity:.9}
+  .ghost .gdisc{width:40px;height:40px;border-radius:50%;border:2px dashed rgba(255,255,255,.55);
+    display:flex;align-items:center;justify-content:center;font-family:'Oswald',sans-serif;
+    font-weight:700;font-size:11px;color:rgba(255,255,255,.75)}
+  /* 벤치 칩(드래그 가능) */
+  .bchip{cursor:grab;touch-action:none;user-select:none}
+  /* 손가락 따라다니는 드래그 프리뷰 */
+  .drag-ghost{position:fixed;transform:translate(-50%,-50%);z-index:80;pointer-events:none;
+    background:var(--gold);color:#16261c;font-weight:700;font-size:13px;padding:6px 12px;border-radius:20px;
+    box-shadow:0 6px 18px rgba(0,0,0,.5)}
 
   .bench{margin-top:22px}
   .bench h3{font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
@@ -213,6 +231,7 @@
       <button class="save-btn saved" id="saveLineupBtn">저장됨 ✓</button>
     </div>
     <div class="form-chips" id="formChips"></div>
+    <p class="tac-hint">💡 벤치 선수를 잔디로 <b>끌어다 놓아</b> 배치하고, 말을 <b>드래그</b>해 위치를 옮기세요. 말을 벤치로 끌면 빠집니다. (탭하면 교체·빼기 메뉴)</p>
 
     <div class="pitch-wrap">
       <div class="pitch" id="pitch">
@@ -344,24 +363,38 @@ const FORMATIONS = {
 let roster = [];
 // 포메이션마다 자기만의 배치를 따로 저장: byFormation['4-4-2'] = {slotIndex: playerId}
 let lineup = { formation:'4-4-2', byFormation:{} };
-let pickingSlot = null;
 
-// 옛 형식({formation, slots}) → 새 형식으로 변환
+// 배치 저장 형식: byFormation[f] = [{id, x, y}]  (x,y = 잔디 위 %좌표)
 function migrateLineup(){
   if(!lineup || typeof lineup!=='object') lineup = { formation:'4-4-2', byFormation:{} };
-  if(lineup.slots && !lineup.byFormation){
+  if(lineup.slots && !lineup.byFormation){            // 아주 옛 형식
     const f = lineup.formation || '4-4-2';
     lineup = { formation:f, byFormation:{ [f]: lineup.slots } };
   }
   if(!lineup.byFormation) lineup.byFormation = {};
   if(!lineup.formation) lineup.formation = '4-4-2';
+  // {slotIndex: playerId} 맵 → [{id,x,y}] 배열로 변환
+  for(const f in lineup.byFormation){
+    const v = lineup.byFormation[f];
+    if(v && !Array.isArray(v)){
+      const layout = FORMATIONS[f] || FORMATIONS['4-4-2'];
+      const arr = [];
+      Object.keys(v).map(Number).sort((a,b)=>a-b).forEach(i=>{
+        const pid = v[i]; if(!pid) return;
+        const s = layout[i] || [null,50,50];
+        arr.push({ id:pid, x:s[1], y:s[2] });
+      });
+      lineup.byFormation[f] = arr;
+    }
+  }
 }
-// 현재 선택된 포메이션의 배치 객체 반환(없으면 생성)
-function currentSlots(){
+// 현재 포메이션의 배치 배열 반환(없으면 생성)
+function currentPlaced(){
   if(!lineup.byFormation) lineup.byFormation = {};
-  if(!lineup.byFormation[lineup.formation]) lineup.byFormation[lineup.formation] = {};
+  if(!Array.isArray(lineup.byFormation[lineup.formation])) lineup.byFormation[lineup.formation] = [];
   return lineup.byFormation[lineup.formation];
 }
+function clampPct(v){ return Math.max(4, Math.min(96, v)); }
 
 // ---------- 저장소 추상화 ----------
 // ▼▼▼ 여기에 구글 Apps Script 웹앱 URL을 붙여넣으면 팀 전체 실시간 공유가 켜집니다 ▼▼▼
@@ -528,73 +561,167 @@ function renderFormChips(){
 function renderTactics(){
   renderFormChips();
   const pitch = document.getElementById('pitch');
-  pitch.querySelectorAll('.slot').forEach(s=>s.remove());
+  pitch.querySelectorAll('.slot,.ghost').forEach(s=>s.remove());
   const layout = FORMATIONS[lineup.formation];
-  const slots = currentSlots();
-  layout.forEach((slot,idx)=>{
+  const placed = currentPlaced();
+
+  // 1) 빈 자리 가이드(고스트) — 근처에 말이 없을 때만 표시. 탭하면 그 자리에 선수 채우기
+  layout.forEach((slot)=>{
     const [role,x,y]=slot;
-    const pid = slots[idx];
-    const p = pid ? roster.find(r=>r.id===pid) : null;
+    const near = placed.some(pp=> Math.abs(pp.x-x)<6 && Math.abs(pp.y-y)<6 );
+    if(near) return;
+    const g=document.createElement('div');
+    g.className='ghost'; g.style.left=x+'%'; g.style.top=y+'%';
+    g.innerHTML=`<div class="gdisc">${role}</div>`;
+    g.onclick=()=>openPicker({x,y});
+    pitch.appendChild(g);
+  });
+
+  // 2) 배치된 선수 말 — 드래그로 이동, 탭하면 교체/빼기
+  placed.forEach((entry)=>{
+    const p = roster.find(r=>r.id===entry.id);
+    if(!p){ return; } // 명단에서 사라진 선수는 표시 안 함
     const el=document.createElement('div');
-    el.className='slot'+(p?' filled':''); el.style.left=x+'%'; el.style.top=y+'%';
-    el.innerHTML = `
-      <div class="disc">${p?(p.number??'●'):role}</div>
-      <div class="${p?'lbl':'role'}">${p?esc(p.name):''}</div>`;
-    el.onclick=()=>openPicker(idx,role);
+    el.className='slot filled'; el.style.left=entry.x+'%'; el.style.top=entry.y+'%';
+    el.innerHTML=`<div class="disc">${p.number??'●'}</div><div class="lbl">${esc(p.name)}</div>`;
+    attachDrag(el, entry);
     pitch.appendChild(el);
   });
   renderBench();
 }
 function renderBench(){
-  const used = new Set(Object.values(currentSlots()));
+  const used = new Set(currentPlaced().map(e=>e.id));
   const bench = roster.filter(p=>!used.has(p.id));
   const el=document.getElementById('benchList');
   if(!roster.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">먼저 명단에서 선수를 등록하세요.</span>'; return; }
-  if(!bench.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">모든 선수가 배치되었습니다.</span>'; return; }
+  if(!bench.length){ el.innerHTML='<span style="color:var(--muted);font-size:13px">모든 선수가 배치되었습니다. 말을 여기로 끌어오면 다시 벤치로 갑니다.</span>'; return; }
   el.innerHTML='';
   bench.sort((a,b)=>(a.number||99)-(b.number||99)).forEach(p=>{
-    const c=document.createElement('div'); c.className='bchip';
+    const c=document.createElement('div'); c.className='bchip'; c.dataset.pid=p.id;
     c.innerHTML=`<span class="bn">${p.number??'-'}</span>${esc(p.name)}`;
+    attachBenchDrag(c, p.id);
     el.appendChild(c);
   });
 }
 
-// ---------- 선수 배치 모달 ----------
-function openPicker(slotIdx, role){
-  pickingSlot = slotIdx;
-  document.getElementById('modalSlot').textContent = role+' 자리';
+// ---------- 드래그(마우스+터치 공용) ----------
+let isDragging=false;
+function pitchPct(clientX, clientY){
+  const r=document.getElementById('pitch').getBoundingClientRect();
+  return { x: clampPct((clientX-r.left)/r.width*100), y: clampPct((clientY-r.top)/r.height*100) };
+}
+function overBench(clientX, clientY){
+  const b=document.getElementById('benchList').getBoundingClientRect();
+  return clientY>=b.top-10 && clientY<=b.bottom+30 && clientX>=b.left-30 && clientX<=b.right+30;
+}
+// 이미 배치된 말: 드래그로 이동, 벤치로 끌면 제거, 짧게 누르면 교체 메뉴
+function attachDrag(el, entry){
+  let sx,sy,moved,dragging=false;
+  el.style.touchAction='none';
+  el.addEventListener('pointerdown',(e)=>{
+    e.preventDefault(); dragging=true; moved=false; isDragging=true;
+    sx=e.clientX; sy=e.clientY; el.setPointerCapture(e.pointerId); el.classList.add('grab');
+  });
+  el.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    if(Math.abs(e.clientX-sx)>4||Math.abs(e.clientY-sy)>4) moved=true;
+    const pos=pitchPct(e.clientX,e.clientY);
+    el.style.left=pos.x+'%'; el.style.top=pos.y+'%';
+    el.classList.toggle('over-bench', overBench(e.clientX,e.clientY));
+  });
+  el.addEventListener('pointerup',(e)=>{
+    if(!dragging) return; dragging=false; isDragging=false; el.classList.remove('grab');
+    if(!moved){ openPicker(entry); return; }              // 탭 → 교체/빼기 메뉴
+    if(overBench(e.clientX,e.clientY)){                    // 벤치로 → 제거
+      const arr=currentPlaced(); const i=arr.indexOf(entry); if(i>=0) arr.splice(i,1);
+    } else {
+      const pos=pitchPct(e.clientX,e.clientY); entry.x=pos.x; entry.y=pos.y;
+    }
+    markLineupDirty(); renderTactics();
+  });
+}
+// 벤치 선수: 잔디로 끌어오면 배치, 짧게 탭하면 기본 자리에 배치
+function attachBenchDrag(el, pid){
+  let sx,sy,moved,dragging=false,ghost=null;
+  el.style.touchAction='none';
+  el.addEventListener('pointerdown',(e)=>{
+    e.preventDefault(); dragging=true; moved=false; sx=e.clientX; sy=e.clientY;
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove',(e)=>{
+    if(!dragging) return;
+    if(Math.abs(e.clientX-sx)>4||Math.abs(e.clientY-sy)>4) moved=true;
+    if(moved && !ghost){
+      ghost=document.createElement('div'); ghost.className='drag-ghost';
+      ghost.textContent=el.textContent.trim(); document.body.appendChild(ghost);
+      isDragging=true;
+    }
+    if(ghost){ ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px'; }
+  });
+  el.addEventListener('pointerup',(e)=>{
+    if(!dragging) return; dragging=false; isDragging=false;
+    if(ghost){ ghost.remove(); ghost=null; }
+    if(!moved){ placeAtDefault(pid); return; }             // 탭 → 기본 자리 배치
+    const r=document.getElementById('pitch').getBoundingClientRect();
+    const inside = e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom;
+    if(inside){ const pos=pitchPct(e.clientX,e.clientY); placePlayer(pid,pos.x,pos.y); }
+  });
+}
+// 배치 로직
+function placePlayer(pid,x,y){
+  const arr=currentPlaced();
+  const ex=arr.find(e=>e.id===pid);
+  if(ex){ ex.x=clampPct(x); ex.y=clampPct(y); }
+  else{ arr.push({id:pid, x:clampPct(x), y:clampPct(y)}); }
+  markLineupDirty(); renderTactics();
+}
+function placeAtDefault(pid){
+  // 현재 포메이션에서 비어있는 첫 기본 자리에 배치
+  const layout=FORMATIONS[lineup.formation]; const placed=currentPlaced();
+  for(const [role,x,y] of layout){
+    const taken = placed.some(pp=>Math.abs(pp.x-x)<6&&Math.abs(pp.y-y)<6);
+    if(!taken){ placePlayer(pid,x,y); return; }
+  }
+  placePlayer(pid,50,50); // 다 찼으면 중앙
+}
+
+// ---------- 선수 배치/교체 모달 ----------
+let pickTarget=null; // {x,y} 또는 기존 entry
+function openPicker(target){
+  pickTarget = target;
+  const existingId = (target && target.id) ? target.id : null;
+  document.getElementById('modalSlot').textContent = existingId ? '교체 / 빼기' : '이 자리에 배치';
   const body=document.getElementById('modalBody');
-  const slots = currentSlots();
-  const used = new Set(Object.entries(slots).filter(([k,v])=>+k!==slotIdx).map(([k,v])=>v));
+  const placed=currentPlaced();
+  const used=new Set(placed.filter(e=>e!==target).map(e=>e.id));
   let html='';
-  if(slots[slotIdx]){
-    html+=`<div class="opt clear" data-pick="__clear"><span>✕ 이 자리 비우기</span></div>`;
-  }
-  if(!roster.length){
-    html+='<div class="empty" style="padding:24px">등록된 선수가 없습니다.</div>';
-  }
+  if(existingId){ html+=`<div class="opt clear" data-pick="__clear"><span>✕ 이 선수 빼기(벤치로)</span></div>`; }
+  if(!roster.length){ html+='<div class="empty" style="padding:24px">등록된 선수가 없습니다.</div>'; }
   roster.slice().sort((a,b)=>(a.number||99)-(b.number||99)).forEach(p=>{
-    const onPitch = used.has(p.id);
+    const onPitch=used.has(p.id);
     html+=`<div class="opt" data-pick="${p.id}">
       <div class="bn" style="width:28px;height:28px;border-radius:50%;background:#0d1a12;border:1.5px solid var(--gold);color:var(--gold);font-family:Oswald;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:13px">${p.number??'-'}</div>
       <div><div style="font-weight:700">${esc(p.name)}</div><div style="font-size:11px;color:var(--muted)">${p.mainPos||''}</div></div>
-      ${onPitch?'<span class="on-pitch">다른 자리 → 이동</span>':''}
+      ${onPitch?'<span class="on-pitch">이동</span>':''}
     </div>`;
   });
   body.innerHTML=html;
-  body.querySelectorAll('[data-pick]').forEach(o=>{
-    o.onclick=()=>pick(o.dataset.pick);
-  });
+  body.querySelectorAll('[data-pick]').forEach(o=>{ o.onclick=()=>pick(o.dataset.pick); });
   document.getElementById('overlay').classList.add('on');
 }
-function closeModal(){ document.getElementById('overlay').classList.remove('on'); pickingSlot=null; }
+function closeModal(){ document.getElementById('overlay').classList.remove('on'); pickTarget=null; }
 function pick(val){
-  const slots = currentSlots();
-  if(val==='__clear'){ delete slots[pickingSlot]; }
-  else{
-    // 같은 포메이션 내 다른 자리에 있으면 제거 후 배치
-    for(const k in slots){ if(slots[k]===val) delete slots[k]; }
-    slots[pickingSlot]=val;
+  const arr=currentPlaced();
+  const target=pickTarget;
+  const tx = (target && target.x!=null)? target.x : 50;
+  const ty = (target && target.y!=null)? target.y : 50;
+  if(val==='__clear'){
+    if(target && target.id){ const i=arr.indexOf(target); if(i>=0) arr.splice(i,1); }
+  } else {
+    // 선택한 선수가 이미 딴 자리에 있으면 제거
+    for(let i=arr.length-1;i>=0;i--){ if(arr[i].id===val && arr[i]!==target) arr.splice(i,1); }
+    if(target && target.id){ target.id=val; }   // 기존 말 교체
+    else { arr.push({id:val, x:clampPct(tx), y:clampPct(ty)}); } // 빈 자리 채우기
   }
   markLineupDirty(); closeModal(); renderTactics();
 }
@@ -620,7 +747,7 @@ function delPlayer(id){
   roster=roster.filter(r=>r.id!==id);
   // 삭제된 선수를 모든 포메이션 배치에서 제거
   const bf = lineup.byFormation || {};
-  for(const f in bf){ for(const k in bf[f]){ if(bf[f][k]===id) delete bf[f][k]; } }
+  for(const f in bf){ if(Array.isArray(bf[f])) bf[f]=bf[f].filter(e=>e.id!==id); }
   saveRoster(); saveLineup(); renderRoster();
   if(document.getElementById('tactics').classList.contains('on')) renderTactics();
 }
@@ -766,6 +893,8 @@ function startPolling(){
   if(pollTimer) clearInterval(pollTimer);
   const ms = apiUrl ? 5000 : 30000; // 실시간 공유 시 5초, 로컬은 30초
   pollTimer = setInterval(async()=>{
+    if(isDragging || lineupDirty) return;               // 편집 중이면 동기화 건너뜀
+    if(document.getElementById('overlay').classList.contains('on')) return; // 배치 메뉴 열림
     await loadAll(); renderRoster();
     if(document.getElementById('tactics').classList.contains('on')) renderTactics();
   }, ms);
